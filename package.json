@@ -15,6 +15,10 @@
   "bugs": {
     "url": "https://github.com/elroy-io/elroy-cloud/issues"
   },
+  "engines" : {
+    "node": "0.10.x",
+    "npm": ">=1.2.x"
+  },
   "homepage": "https://github.com/elroy-io/elroy-cloud",
   "dependencies": {
     "ws": "~0.4.31"
