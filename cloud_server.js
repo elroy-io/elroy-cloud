@@ -35,4 +35,4 @@ var wss = new WebSocketServer({ server: server });
 wss.on('connection', function(ws) {
   webSocket = ws;
 });
-server.listen(3000);
+server.listen(process.env.PORT || 3000);
