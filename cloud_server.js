@@ -1,7 +1,6 @@
 var http = require('http');
 var WebSocketServer = require('ws').Server;
 var parseRequest = require('./reqstring');
-var StompFrame = require('./stomp');
 
 var webSocket = null;
 var idCounter = 0;
@@ -10,15 +9,11 @@ var clients = {};
 var subscriptions = {};
 
 var server = http.createServer(function(req, res) {
-
-  console.log('request..')
   if (!webSocket) {
     res.statusCode = 500;
     res.end();
     return;
   }
-  console.log('request..')
-
   var messageId = ++idCounter;
 
   clients[messageId] = res;//req.socket; Will need socket for event broadcast.
