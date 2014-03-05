@@ -11,7 +11,7 @@ var server = http.createServer(function(req, res) {
   if (!webSocket) {
     res.statusCode = 500;
     return;
-  };
+  }
 
   var messageId = ++idCounter;
 
@@ -33,6 +33,7 @@ var onmessage = function(data) {
 
   var res;
   var messageId;
+  var queueName;
 
   headersNShit.forEach(function(header) {
     var headerPair = header.split(':');
@@ -40,7 +41,16 @@ var onmessage = function(data) {
       messageId = headerPair[1];
       res = clients[parseInt(messageId)];
     }
+
+    if(headerPair[0] === 'elroy-queue-name') {
+      queueName = headerPair[1];
+    }
   });
+
+  if(queueName) {
+    console.log('queueName:',queueName,' data:',body);
+    return;
+  }
 
   headersNShit.forEach(function(header) {
     var headerPair = header.split(':');
