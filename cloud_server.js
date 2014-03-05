@@ -32,11 +32,13 @@ var onmessage = function(data) {
   var statusLine = headersNShit.shift();
 
   var res;
+  var messageId;
 
   headersNShit.forEach(function(header) {
     var headerPair = header.split(':');
     if (headerPair[0] === 'elroy-message-id') {
-      res = clients[parseInt(headerPair[1])];
+      messageId = headerPair[1];
+      res = clients[parseInt(messageId)];
     }
   });
 
@@ -51,6 +53,8 @@ var onmessage = function(data) {
 
   res.statusCode = statusLine[1];
   res.end(body);
+
+  delete clients[messageId];
 };
 
 var wss = new WebSocketServer({ server: server });
