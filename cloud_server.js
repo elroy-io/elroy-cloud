@@ -53,14 +53,18 @@ var server = http.createServer(function(req, res) {
     }
   });
 
-  var opts = { method: req.method, path: req.url, agent: agent };
+  var opts = { method: req.method, headers: req.headers, path: req.url, agent: agent };
   var request = http.request(opts, function(response) {
-    console.log('got response!');
-    response.pipe(process.stdout);
+    //console.log('got response!');
+    //console.log(response);
+    var id = response.headers['elroy-message-id'];
+    var res = clients[id];
+    response.pipe(res);
+    delete clients[id];
   });
   //req.pipe(request);
   request.on('error', function(e) { console.log(e); });
-  console.log('making request');
+  //console.log('making request');
   request.end();
 });
 
@@ -68,7 +72,7 @@ server.on('error', function(e) { console.error('error:', e); });
 
 var onmessage = function(data) {
   //socket.ondata(data, 0, data.length);
-  console.log(data);
+  //console.log(data);
   return;
   var response = data.split('\r\n\r\n');
   var headersNShit = response.shift().split('\r\n');
@@ -158,19 +162,7 @@ var wss = new WebSocketServer({ server: server });
 wss.on('connection', function(ws) {
   if(ws.upgradeReq.url === '/'){
     webSocket = ws;
-    socket = ws._socket;
-    agent = spdy.createAgent(FogAgent, {
-      host: 'localhost',
-      port: 80,
-      socket: socket,
-      spdy: {
-        plain: true,
-        ssl: false
-      }
-    });
-    socket.on('finish', function() { console.log('finishing socket'); });
-    socket.on('end', function() { console.log('ending data') });
-    //ws.on('message', function(data) { console.log('on message:', data); });
+    //webSocket.on('message', onmessage);
   }else if(ws.upgradeReq.url === '/events'){
     setupEventSocket(ws);
   }
