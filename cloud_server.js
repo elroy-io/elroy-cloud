@@ -3,8 +3,6 @@ var spdy = require('spdy');
 var WebSocketServer = require('ws').Server;
 var websocket = require('websocket-stream');
 var FogAgent = require('./fog_agent');
-var parseRequest = require('./reqstring');
-var PassThrough = require('stream').PassThrough;
 
 var webSocket = null;
 var socket;
@@ -27,23 +25,12 @@ var server = http.createServer(function(req, res) {
 
   req.headers['elroy-message-id'] = messageId;
 
-  //parseRequest(req, function(err, reqString) {
-    //webSocket.send(reqString);
-  //});
-
   socket = websocket(webSocket);
   
-  //var socket = new PassThrough();
   ['setTimeout', 'destroy', 'destroySoon'].forEach(function(key) {
     socket[key] = function() {};
   });
 
-  //socket.ondata = function(chunk, start, end) {
-    //console.log('ondata:', chunk);
-  //};
-
-  socket.on('error', function(e) { console.log(e); });
-  socket.on('close', function() {});
   socket.setTimeout = function() { };
   var agent = spdy.createAgent(FogAgent, {
     socket: socket,
@@ -55,25 +42,24 @@ var server = http.createServer(function(req, res) {
 
   var opts = { method: req.method, headers: req.headers, path: req.url, agent: agent };
   var request = http.request(opts, function(response) {
-    //console.log('got response!');
-    //console.log(response);
     var id = response.headers['elroy-message-id'];
     var res = clients[id];
+
     response.pipe(res);
+
     delete clients[id];
   });
-  //req.pipe(request);
-  request.on('error', function(e) { console.log(e); });
-  //console.log('making request');
+
+  req.pipe(request);
+
   request.end();
 });
 
 server.on('error', function(e) { console.error('error:', e); });
 
 var onmessage = function(data) {
-  //socket.ondata(data, 0, data.length);
-  //console.log(data);
-  return;
+  return; // TODO: implement event streaming with server push
+
   var response = data.split('\r\n\r\n');
   var headersNShit = response.shift().split('\r\n');
   var body = response.join();
@@ -162,7 +148,6 @@ var wss = new WebSocketServer({ server: server });
 wss.on('connection', function(ws) {
   if(ws.upgradeReq.url === '/'){
     webSocket = ws;
-    //webSocket.on('message', onmessage);
   }else if(ws.upgradeReq.url === '/events'){
     setupEventSocket(ws);
   }
