@@ -3,6 +3,8 @@ var spdy = require('spdy');
 var WebSocketServer = require('ws').Server;
 var websocket = require('websocket-stream');
 var FogAgent = require('./fog_agent');
+var parseRequest = require('./reqstring');
+var PassThrough = require('stream').PassThrough;
 
 var webSocket = null;
 var socket;
@@ -25,35 +27,49 @@ var server = http.createServer(function(req, res) {
 
   req.headers['elroy-message-id'] = messageId;
 
-  //socket = websocket(webSocket);
-  
-  //['setTimeout', 'destroy', 'destroySoon'].forEach(function(key) {
-    //socket[key] = function() {};
+  //parseRequest(req, function(err, reqString) {
+    //webSocket.send(reqString);
   //});
 
-  //socket.setTimeout = function() { };
-
-  var opts = { method: req.method, headers: req.headers, path: req.url, agent: agent };
-  var request = http.request(opts, function(response) {
-    var id = response.headers['elroy-message-id'];
-    var res = clients[id];
-
-    response.pipe(res);
-
-    delete clients[id];
+  socket = websocket(webSocket);
+  
+  //var socket = new PassThrough();
+  ['setTimeout', 'destroy', 'destroySoon'].forEach(function(key) {
+    socket[key] = function() {};
   });
 
-  //req.pipe(request);
+  //socket.ondata = function(chunk, start, end) {
+    //console.log('ondata:', chunk);
+  //};
 
-  request.on('error', function(e) { console.log('error:', e); });
+  socket.on('error', function(e) { console.log(e); });
+  socket.on('close', function() {});
+  socket.setTimeout = function() { };
+  var agent = spdy.createAgent(FogAgent, {
+    socket: socket,
+    spdy: {
+      plain: true,
+      ssl: false
+    }
+  });
+
+  var opts = { method: req.method, path: req.url, agent: agent };
+  var request = http.request(opts, function(response) {
+    console.log('got response!');
+    response.pipe(process.stdout);
+  });
+  //req.pipe(request);
+  request.on('error', function(e) { console.log(e); });
+  console.log('making request');
   request.end();
 });
 
 server.on('error', function(e) { console.error('error:', e); });
 
 var onmessage = function(data) {
-  return; // TODO: implement event streaming with server push
-
+  //socket.ondata(data, 0, data.length);
+  console.log(data);
+  return;
   var response = data.split('\r\n\r\n');
   var headersNShit = response.shift().split('\r\n');
   var body = response.join();
