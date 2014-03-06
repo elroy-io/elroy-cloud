@@ -15,12 +15,14 @@
   "bugs": {
     "url": "https://github.com/elroy-io/elroy-cloud/issues"
   },
-  "engines" : {
+  "engines": {
     "node": "0.10.x",
     "npm": ">=1.2.x"
   },
   "homepage": "https://github.com/elroy-io/elroy-cloud",
   "dependencies": {
-    "ws": "~0.4.31"
+    "ws": "~0.4.31",
+    "spdy": "~1.19.3",
+    "websocket-stream": "~0.5.0"
   }
 }
