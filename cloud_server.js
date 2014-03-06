@@ -51,20 +51,24 @@ var server = http.createServer(function(req, res) {
     }
   });
 
-  var opts = { method: req.method, path: req.url, agent: agent };
+  var opts = { method: req.method, headers: req.headers, path: req.url, agent: agent };
   var request = http.request(opts, function(response) {
-    console.log('got response!');
-    response.pipe(process.stdout);
+    //console.log('got response!');
+    //console.log(response);
+    var id = response.headers['elroy-message-id'];
+    var res = clients[id];
+    response.pipe(res);
+    delete clients[id];
   });
   //req.pipe(request);
   request.on('error', function(e) { console.log(e); });
-  console.log('making request');
+  //console.log('making request');
   request.end();
 });
 
 var onmessage = function(data) {
   //socket.ondata(data, 0, data.length);
-  console.log(data);
+  //console.log(data);
   return;
   var response = data.split('\r\n\r\n');
   var headersNShit = response.shift().split('\r\n');
@@ -167,7 +171,7 @@ var wss = new WebSocketServer({ server: server });
 wss.on('connection', function(ws) {
   if(ws.upgradeReq.url === '/'){
     webSocket = ws;
-    webSocket.on('message', onmessage);
+    //webSocket.on('message', onmessage);
   }else if(ws.upgradeReq.url === '/events'){
     setupEventSocket(ws);
   }
