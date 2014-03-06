@@ -3,8 +3,6 @@ var spdy = require('spdy');
 var WebSocketServer = require('ws').Server;
 var websocket = require('websocket-stream');
 var FogAgent = require('./fog_agent');
-var parseRequest = require('./reqstring');
-var PassThrough = require('stream').PassThrough;
 
 var webSocket = null;
 var socket;
@@ -25,23 +23,12 @@ var server = http.createServer(function(req, res) {
 
   req.headers['elroy-message-id'] = messageId;
 
-  //parseRequest(req, function(err, reqString) {
-    //webSocket.send(reqString);
-  //});
-
   socket = websocket(webSocket);
   
-  //var socket = new PassThrough();
   ['setTimeout', 'destroy', 'destroySoon'].forEach(function(key) {
     socket[key] = function() {};
   });
 
-  //socket.ondata = function(chunk, start, end) {
-    //console.log('ondata:', chunk);
-  //};
-
-  socket.on('error', function(e) { console.log(e); });
-  socket.on('close', function() {});
   socket.setTimeout = function() { };
   var agent = spdy.createAgent(FogAgent, {
     socket: socket,
@@ -53,23 +40,22 @@ var server = http.createServer(function(req, res) {
 
   var opts = { method: req.method, headers: req.headers, path: req.url, agent: agent };
   var request = http.request(opts, function(response) {
-    //console.log('got response!');
-    //console.log(response);
     var id = response.headers['elroy-message-id'];
     var res = clients[id];
+
     response.pipe(res);
+
     delete clients[id];
   });
-  //req.pipe(request);
-  request.on('error', function(e) { console.log(e); });
-  //console.log('making request');
+
+  req.pipe(request);
+
   request.end();
 });
 
 var onmessage = function(data) {
-  //socket.ondata(data, 0, data.length);
-  //console.log(data);
-  return;
+  return; // TODO: implement event streaming with server push
+
   var response = data.split('\r\n\r\n');
   var headersNShit = response.shift().split('\r\n');
   var body = response.join();
@@ -77,16 +63,10 @@ var onmessage = function(data) {
   var statusLine = headersNShit.shift();
 
   var res;
-  var messageId;
   var queueName;
 
   headersNShit.forEach(function(header) {
     var headerPair = header.split(':');
-    if (headerPair[0] === 'elroy-message-id') {
-      messageId = headerPair[1];
-      res = clients[parseInt(messageId)];
-    }
-
     if(headerPair[0] === 'elroy-queue-name') {
       queueName = headerPair[1];
     }
@@ -106,22 +86,7 @@ var onmessage = function(data) {
         client.send(JSON.stringify({ destination : queueName, data : data }));
       });
     }
-    return;
   }
-
-  headersNShit.forEach(function(header) {
-    var headerPair = header.split(':');
-    if (headerPair[0] !== 'elroy-message-id') {
-      res.setHeader(headerPair[0], headerPair[1].trim());
-    }
-  });
-
-  statusLine = statusLine.split(' ');
-
-  res.statusCode = statusLine[1];
-  res.end(body);
-
-  delete clients[messageId];
 };
 
 
@@ -179,11 +144,9 @@ var wss = new WebSocketServer({ server: server });
 wss.on('connection', function(ws) {
   if(ws.upgradeReq.url === '/'){
     webSocket = ws;
-    //webSocket.on('message', onmessage);
   }else if(ws.upgradeReq.url === '/events'){
     setupEventSocket(ws);
   }
 });
-
 
 server.listen(process.env.PORT || 3000);
