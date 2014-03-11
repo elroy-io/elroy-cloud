@@ -51,7 +51,15 @@ var onmessage = function(data) {
   if(queueName) {
     if(subscriptions[queueName]){
       subscriptions[queueName].forEach(function(client){
-        client.send(JSON.stringify({destination : queueName,data : body}));
+        var data;
+
+        try {
+          data = JSON.parse(body);
+        } catch(e) {
+          data = body;
+        }
+
+        client.send(JSON.stringify({ destination : queueName, data : data }));
       });
     }
     return;
@@ -90,7 +98,7 @@ function setupEventSocket(ws){
   });
 
   ws.on('error',function(err){
-    console.log(err);
+    console.error(err);
     closeSocket();
   });
   
@@ -99,7 +107,7 @@ function setupEventSocket(ws){
     try{
      msg = JSON.parse(data);
     }catch(err){
-      console.log(err);
+      console.error(err);
       return;
     }
 
