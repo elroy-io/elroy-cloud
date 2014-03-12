@@ -12,16 +12,17 @@ var ElroyCloud = module.exports = function(){
 
   this.clients = {};
   this.subscriptions = {};
+  this.idCounter = 0;
 
   this.server = http.createServer(function(req, res) {
-    if (!webSocket) {
+    if (!self.webSocket) {
       res.statusCode = 500;
       res.end();
       return;
     }
 
-    var messageId = ++idCounter;
-    clients[messageId] = res;//req.socket; Will need socket for event broadcast.
+    var messageId = ++self.idCounter;
+    self.clients[messageId] = res;//req.socket; Will need socket for event broadcast.
     req.headers['elroy-message-id'] = messageId;
     parseRequest(req, function(err, reqString) {
       self.webSocket.send(reqString);
@@ -109,7 +110,7 @@ ElroyCloud.prototype.onmessage = function(data) {
   res.statusCode = statusLine[1];
   res.end(body);
 
-  delete clients[messageId];
+  delete self.clients[messageId];
 };
 
 

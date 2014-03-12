@@ -1,6 +1,6 @@
 {
   "name": "elroy-cloud",
-  "version": "0.0.1",
+  "version": "0.0.4",
   "description": "Cloud component for elroy.",
   "main": "cloud.js",
   "scripts": {
