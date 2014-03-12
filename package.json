@@ -2,7 +2,7 @@
   "name": "elroy-cloud",
   "version": "0.0.1",
   "description": "Cloud component for elroy.",
-  "main": "cloud_server.js",
+  "main": "cloud.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
