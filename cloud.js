@@ -5,7 +5,7 @@ var parseRequest = require('./reqstring');
 var ElroyCloud = module.exports = function(){
   var self = this;
 
-  this._collectors = [];
+  this._collectors = {};
 
   this.webSocket = null;
   this.idCounter = 0;
@@ -33,7 +33,12 @@ var ElroyCloud = module.exports = function(){
   this.wss.on('connection', function(ws) {
     if(ws.upgradeReq.url === '/'){
       self.webSocket = ws;
-      self._subscribe('_logs',self.webSocket);
+
+      var keys = Object.keys(self._collectors).concat(Object.keys(self.subscriptions));
+      keys.forEach(function(k){
+        self._subscribe(k,self.webSocket);  
+      })
+
       self.webSocket.on('message', self.onmessage.bind(self) );
     }else if(ws.upgradeReq.url === '/events'){
       self.setupEventSocket(ws);
@@ -41,12 +46,23 @@ var ElroyCloud = module.exports = function(){
   });
 }
 
-ElroyCloud.prototype.collector = function(collector){
-  this._collectors.push(collector);
+ElroyCloud.prototype.collector = function(name,collector){
+  if(typeof name === 'function'){
+    collector = name;
+    name = '_logs';
+  }
+
+  if(!this._collectors[name])
+    this._collectors[name] = [];
+
+  this._collectors[name].push(collector);
+
+  return this;
 };
 
 ElroyCloud.prototype.listen = function(){
   this.server.listen.apply(this.server,arguments);
+  return this;
 };
 
 ElroyCloud.prototype.onmessage = function(data) {
@@ -83,8 +99,8 @@ ElroyCloud.prototype.onmessage = function(data) {
       data = body;
     }
 
-    if(queueName === '_logs'){
-      self._collectors.forEach(function(collector){
+    if(self._collectors[queueName]){
+      self._collectors[queueName].forEach(function(collector){
         collector(data);
       });
     }
@@ -95,6 +111,7 @@ ElroyCloud.prototype.onmessage = function(data) {
         client.send(sendData);
       });
     }
+
     return;
   }
 
