@@ -82,9 +82,11 @@ ElroyCloud.prototype.onmessage = function(data) {
       data = body;
     }
 
-    self._collectors.forEach(function(collector){
-      collector(data);
-    });
+    if(queueName === '_logs'){
+      self._collectors.forEach(function(collector){
+        collector(data);
+      });
+    }
 
     if(self.subscriptions[queueName]){
       var sendData = JSON.stringify({ destination : queueName, data : data });
