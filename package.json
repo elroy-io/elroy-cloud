@@ -4,7 +4,7 @@
   "description": "Cloud component for elroy.",
   "main": "cloud.js",
   "scripts": {
-
+    "start" : "node app.js"
   },
   "repository": {
     "type": "git",
