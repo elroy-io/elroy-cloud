@@ -1,10 +1,10 @@
 {
   "name": "elroy-cloud",
-  "version": "0.0.5",
+  "version": "0.0.7",
   "description": "Cloud component for elroy.",
   "main": "cloud.js",
   "scripts": {
-    "start": "node app.js"
+
   },
   "repository": {
     "type": "git",
@@ -22,5 +22,8 @@
   "homepage": "https://github.com/elroy-io/elroy-cloud",
   "dependencies": {
     "ws": "~0.4.31"
+  },
+  "bin" : {
+   "elroycloud" : "bin/elroycloud"
   }
 }
