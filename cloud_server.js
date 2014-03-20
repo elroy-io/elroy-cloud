@@ -33,11 +33,13 @@ var server = http.createServer(function(req, res) {
 
   //socket.setTimeout = function() { };
 
+  console.log('in request');
   var opts = { method: req.method, headers: req.headers, path: req.url, agent: agent };
   var request = http.request(opts, function(response) {
     var id = response.headers['elroy-message-id'];
     var res = clients[id];
 
+    console.log('in response');
     response.pipe(res);
 
     delete clients[id];
@@ -152,11 +154,25 @@ wss.on('connection', function(ws) {
         ssl: false
       }
     });
+    //ws._socket.removeListener('data', ws._socket.listeners('data')[0]);
+    //console.log(ws._socket.listeners('error').length);
+    var readable = ws._socket.listeners('readable')[0];
+    var data = ws._socket.listeners('data')[1];
+    ws._socket.removeAllListeners();
+    //console.log(readable);
+    //ws._socket.on('readable', readable);
+    //ws._socket.on('data', data);
+    ws._socket.on('readable', function() {
+      var data;
+      while (data = ws._socket.read()) {
+        console.log('ondata:', data);
+      }
+    });
     socket.on('finish', function() { console.log('finishing socket'); });
     socket.on('end', function() { console.log('ending data') });
     //ws.on('message', function(data) { console.log('on message:', data); });
   }else if(ws.upgradeReq.url === '/events'){
-    setupEventSocket(ws);
+    //setupEventSocket(ws);
   }
 });
 
