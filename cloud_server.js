@@ -33,13 +33,19 @@ var server = http.createServer(function(req, res) {
 
   //socket.setTimeout = function() { };
 
+<<<<<<< HEAD
   console.log('in request');
+=======
+>>>>>>> 1a61b3244210d3bb3d4151c6af4cfa901801a892
   var opts = { method: req.method, headers: req.headers, path: req.url, agent: agent };
   var request = http.request(opts, function(response) {
     var id = response.headers['elroy-message-id'];
     var res = clients[id];
 
+<<<<<<< HEAD
     console.log('in response');
+=======
+>>>>>>> 1a61b3244210d3bb3d4151c6af4cfa901801a892
     response.pipe(res);
 
     delete clients[id];
