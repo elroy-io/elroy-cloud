@@ -21,7 +21,7 @@
   },
   "homepage": "https://github.com/elroy-io/elroy-cloud",
   "dependencies": {
-    "ws": "~0.4.31"
+    "ws": "git://github.com/AdamMagaluk/ws"
   },
   "bin" : {
    "elroycloud" : "bin/elroycloud"
