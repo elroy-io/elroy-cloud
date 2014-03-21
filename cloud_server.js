@@ -1,11 +1,9 @@
 var http = require('http');
 var spdy = require('spdy');
 var WebSocketServer = require('ws').Server;
-var websocket = require('websocket-stream');
 var FogAgent = require('./fog_agent');
 
 var webSocket = null;
-var socket;
 var idCounter = 0;
 
 var clients = {};
@@ -25,70 +23,25 @@ var server = http.createServer(function(req, res) {
 
   req.headers['elroy-message-id'] = messageId;
 
-  //socket = websocket(webSocket);
-  
-  //['setTimeout', 'destroy', 'destroySoon'].forEach(function(key) {
-    //socket[key] = function() {};
-  //});
 
-  //socket.setTimeout = function() { };
-
-  console.log('in request');
   var opts = { method: req.method, headers: req.headers, path: req.url, agent: agent };
   var request = http.request(opts, function(response) {
     var id = response.headers['elroy-message-id'];
     var res = clients[id];
 
-    console.log('in response');
+    Object.keys(response.headers).forEach(function(header) {
+      if (header !== 'elroy-message-id') {
+        res.setHeader(header, response.headers[header]);
+      }
+    });
+
     response.pipe(res);
 
     delete clients[id];
   });
 
-  //req.pipe(request);
-
-  request.on('error', function(e) { console.log('error:', e); });
-  request.end();
+  req.pipe(request);
 });
-
-server.on('error', function(e) { console.error('error:', e); });
-
-var onmessage = function(data) {
-  return; // TODO: implement event streaming with server push
-
-  var response = data.split('\r\n\r\n');
-  var headersNShit = response.shift().split('\r\n');
-  var body = response.join();
-
-  var statusLine = headersNShit.shift();
-
-  var res;
-  var queueName;
-
-  headersNShit.forEach(function(header) {
-    var headerPair = header.split(':');
-    if(headerPair[0] === 'elroy-queue-name') {
-      queueName = headerPair[1];
-    }
-  });
-
-  if(queueName) {
-    if(subscriptions[queueName]){
-      subscriptions[queueName].forEach(function(client){
-        var data;
-
-        try {
-          data = JSON.parse(body);
-        } catch(e) {
-          data = body;
-        }
-
-        client.send(JSON.stringify({ destination : queueName, data : data }));
-      });
-    }
-  }
-};
-
 
 function setupEventSocket(ws){
   ws.on('message', onEventMessage);
@@ -127,14 +80,19 @@ function setupEventSocket(ws){
 
       var body = 'name='+msg.name;
 
-      var reqStr = 'POST /_subscriptions HTTP/1.1\r\n';
-      reqStr += 'Content-Type:application/x-www-form-urlencoded\r\n';
-      reqStr += 'Host:argo.fog.com\r\n';
-      reqStr += 'Content-Length:'+body.length+'\r\n\r\n';
-      reqStr += body;
+      var opts = {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Host': 'fog.argo.cx',
+          'Content-Length': body.length
+        },
+        path: '/_subscriptions',
+        agent: agent
+      };
 
-      webSocket.send(reqStr);
-
+      var req = http.request(opts);
+      req.end(new Buffer(body));
     }
   };
 }
@@ -142,40 +100,58 @@ function setupEventSocket(ws){
 
 var wss = new WebSocketServer({ server: server });
 wss.on('connection', function(ws) {
-  if(ws.upgradeReq.url === '/'){
+  if (ws.upgradeReq.url === '/'){
     var readable = ws._socket.listeners('readable')[0];
     ws._socket.removeAllListeners();
     ws._socket.on('readable', readable);
-    console.log(ws._socket.listeners('readable')[0].toString());
-    webSocket = ws;
-    socket = ws._socket;
+
+    webSocket = ws._socket;
+
     agent = spdy.createAgent(FogAgent, {
       host: 'localhost',
       port: 80,
-      socket: socket,
+      socket: ws._socket,
       spdy: {
         plain: true,
         ssl: false
       }
     });
-    //ws._socket.removeListener('data', ws._socket.listeners('data')[0]);
-    //console.log(ws._socket.listeners('error').length);
-    //var readable = ws._socket.listeners('readable')[0];
-    //var data = ws._socket.listeners('data')[1];
-    //console.log(readable);
-    //ws._socket.on('readable', readable);
-    //ws._socket.on('data', data);
-    /*ws._socket.on('readable', function() {
-      var data;
-      while (data = ws._socket.read()) {
-        console.log('ondata:', data);
-      }
-    });*/
-    socket.on('finish', function() { console.log('finishing socket'); });
-    socket.on('end', function() { console.log('ending data') });
-    //ws.on('message', function(data) { console.log('on message:', data); });
-  }else if(ws.upgradeReq.url === '/events'){
-    //setupEventSocket(ws);
+
+    agent.on('push', function(stream) {
+      var data = [];
+      var len = 0;
+      stream.on('readable', function() {
+        while (d = stream.read()) {
+          data.push(d);
+          len += d.length;
+        };
+      });
+
+      stream.on('error', function(err) {
+        console.error('error on push:', err);
+      });
+
+      stream.on('end', function() {
+        var queueName = stream.url;
+        var body = data.join();
+
+        if(subscriptions[queueName]){
+          subscriptions[queueName].forEach(function(client){
+            var data;
+
+            try {
+              data = JSON.parse(body);
+            } catch(e) {
+              data = body;
+            }
+
+            client.send(JSON.stringify({ destination : queueName, data : data }));
+          });
+        }
+      });
+    });
+  } else if(ws.upgradeReq.url === '/events'){
+    setupEventSocket(ws);
   }
 });
 
