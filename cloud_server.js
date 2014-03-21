@@ -143,6 +143,10 @@ function setupEventSocket(ws){
 var wss = new WebSocketServer({ server: server });
 wss.on('connection', function(ws) {
   if(ws.upgradeReq.url === '/'){
+    var readable = ws._socket.listeners('readable')[0];
+    ws._socket.removeAllListeners();
+    ws._socket.on('readable', readable);
+    console.log(ws._socket.listeners('readable')[0].toString());
     webSocket = ws;
     socket = ws._socket;
     agent = spdy.createAgent(FogAgent, {
@@ -156,18 +160,17 @@ wss.on('connection', function(ws) {
     });
     //ws._socket.removeListener('data', ws._socket.listeners('data')[0]);
     //console.log(ws._socket.listeners('error').length);
-    var readable = ws._socket.listeners('readable')[0];
-    var data = ws._socket.listeners('data')[1];
-    ws._socket.removeAllListeners();
+    //var readable = ws._socket.listeners('readable')[0];
+    //var data = ws._socket.listeners('data')[1];
     //console.log(readable);
     //ws._socket.on('readable', readable);
     //ws._socket.on('data', data);
-    ws._socket.on('readable', function() {
+    /*ws._socket.on('readable', function() {
       var data;
       while (data = ws._socket.read()) {
         console.log('ondata:', data);
       }
-    });
+    });*/
     socket.on('finish', function() { console.log('finishing socket'); });
     socket.on('end', function() { console.log('ending data') });
     //ws.on('message', function(data) { console.log('on message:', data); });

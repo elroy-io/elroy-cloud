@@ -8,6 +8,7 @@ var FogAgent = module.exports = function(options) {
 util.inherits(FogAgent, Agent);
 
 FogAgent.prototype.createConnection = function(options) {
+  console.log(options.socket === this.socket);
   console.log('create connection called ---------------------<');
   console.log('writable from options:', options.socket.writable);
   return options.socket;
