@@ -149,11 +149,17 @@ ElroyCloud.prototype.setupEventSocket = function(ws){
     }
 
     if(msg.cmd === 'subscribe' && msg.name){
-      if(!self.subscriptions[msg.name])
+      var isNew = false;
+      if(!self.subscriptions[msg.name]) {
         self.subscriptions[msg.name] = [];
+        isNew = true;
+      }
 
       self.subscriptions[msg.name].push(ws);
-      self._subscribe(msg.name);
+
+      if (isNew) {
+        self._subscribe(msg.name);
+      }
     }
   };
 }
