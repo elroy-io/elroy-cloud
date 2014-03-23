@@ -66,6 +66,7 @@ var ElroyCloud = module.exports = function() {
       });
 
       self.agent.on('push', function(stream) {
+        stream.setTimeout(0);
         var data = [];
         var len = 0;
         stream.on('readable', function() {
