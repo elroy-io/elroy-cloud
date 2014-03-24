@@ -66,7 +66,6 @@ var ElroyCloud = module.exports = function() {
       });
 
       self.agent.on('push', function(stream) {
-        stream.setTimeout(0);
         var data = [];
         var len = 0;
         stream.on('readable', function() {
@@ -101,6 +100,7 @@ var ElroyCloud = module.exports = function() {
               }
 
               client.send(JSON.stringify({ destination : queueName, data : data }));
+              stream.connection.end();
             });
           }
         });
