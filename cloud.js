@@ -49,9 +49,7 @@ var ElroyCloud = module.exports = function() {
   this.wss = new WebSocketServer({ server: this.server });
   this.wss.on('connection', function(ws) {
     if (ws.upgradeReq.url === '/'){
-      var readable = ws._socket.listeners('readable')[0];
-      ws._socket.removeAllListeners();
-      ws._socket.on('readable', readable);
+      ws._socket.removeAllListeners('data'); // Remove WebSocket data handler.
 
       self.webSocket = ws._socket;
 
