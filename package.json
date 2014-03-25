@@ -25,7 +25,7 @@
   },
   "dependencies": {
     "ws": "~0.4.31",
-    "spdy": "~1.19.3",
+    "spdy": ">=1.24.0",
     "websocket-stream": "~0.5.0"
   }
 }
