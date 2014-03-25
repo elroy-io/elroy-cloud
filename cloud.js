@@ -100,9 +100,10 @@ var ElroyCloud = module.exports = function() {
               }
 
               client.send(JSON.stringify({ destination : queueName, data : data }));
-              stream.connection.end();
             });
           }
+
+          stream.connection.end();
         });
       });
 
