@@ -56,8 +56,12 @@ var ElroyCloud = module.exports = function() {
 
       self.webSocket.on('end', function() {
         self.webSocket = null;
-        self.subscriptions = {};
-        self._collectors = {};
+        setTimeout(function() {
+          if (!self.webSocket) {
+            self.subscriptions = {};
+            self._collectors = {};
+          }
+        }, 5 * 60 * 1000);
       });
 
       self.agent = spdy.createAgent(FogAgent, {
