@@ -76,11 +76,11 @@ var ElroyCloud = module.exports = function() {
 
       // TODO: Remove this when bug in agent socket removal is fixed.
       self.agent.maxSockets = 150;
-      //console.log(self.agent.maxSockets);
 
       self.agent.on('push', function(stream) {
         if (!self.subscriptions[stream.url] && !self._collectors[stream.url]) {
-          stream.connection.associated.end();
+          stream.connection.end();
+          return;
         }
 
         var data = [];
@@ -101,6 +101,12 @@ var ElroyCloud = module.exports = function() {
             stream.connection.end();
             return;
           }
+
+          if (!self.subscriptions[stream.url] && !self._collectors[stream.url]) {
+            stream.connection.end();
+            return;
+          }
+
           var queueName = stream.url;
           var body = data.join();
 
@@ -110,8 +116,9 @@ var ElroyCloud = module.exports = function() {
             });
           }
 
-          if(self.subscriptions[queueName] && self.subscriptions[queueName].length){
-            self.subscriptions[queueName].forEach(function(client){
+          if(self.subscriptions[queueName] && self.subscriptions[queueName].length && self.eventRequests[queueName]){
+            var toRemove = [];
+            self.subscriptions[queueName].forEach(function(client, i){
               var data;
 
               try {
@@ -120,7 +127,15 @@ var ElroyCloud = module.exports = function() {
                 data = body;
               }
 
-              client.send(JSON.stringify({ destination : queueName, data : data }));
+              client.send(JSON.stringify({ destination : queueName, data : data }), function(err) {
+                if (err) {
+                  toRemove.push(i);
+                }
+              });
+            });
+
+            toRemove.forEach(function(idx) {
+              self.subscriptions[queueName].splice(idx);
             });
           }
 
@@ -160,35 +175,19 @@ ElroyCloud.prototype.setupEventSocket = function(ws){
       });
 
       if (self.subscriptions[channel].length === 0) {
-        //console.log('deleting subscription:', channel);
         delete self.subscriptions[channel];
         var con = self.eventRequests[channel].connection;
-        //con.end();
-        //console.log(self.agent.sockets);
-        /*var idx = null;
-        console.log('hosts:', Object.keys(self.agent.sockets));
-        Object.keys(self.agent.sockets).forEach(function(host) {
-          console.log(host);
-          self.agent.sockets[host].forEach(function(sock, i) {
-            console.log(i);
-            if (sock === con.socket) {
-              sock.end();
-              idx = i;
-            }
-          });
 
-          if (idx !== null) {
-            self.agent.sockets[host].splice(idx);
-          }
-        });*/
+        self.agent.removeSocket(con, self.agent.host + ':' + self.agent.port,
+          self.agent.host, self.agent.port, self.agent.host);
+
         delete self.eventRequests[channel];
-        //console.log(self.agent.sockets);
+        con.end();
       }
     });
   }
 
   ws.on('close',function(){
-    //console.log('closing socket');
     closeSocket();  
   });
 
@@ -213,7 +212,6 @@ ElroyCloud.prototype.setupEventSocket = function(ws){
         isNew = true;
       }
 
-      //console.log('isNew:', isNew);
       self.subscriptions[msg.name].push(ws);
 
       if (isNew) {
@@ -243,7 +241,6 @@ ElroyCloud.prototype.collector = function(name,collector){
 };
 
 ElroyCloud.prototype._subscribe = function(event) {
-  //console.log('subscribing to:', event);
   var self = this;
   var body = 'name='+event;
 
