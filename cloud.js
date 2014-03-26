@@ -10,6 +10,7 @@ var ElroyCloud = module.exports = function() {
   this._collectors = {};
   this.clients = {};
   this.subscriptions = {};
+  this.eventRequests = {};
 
   this.agent = null;
 
@@ -53,6 +54,12 @@ var ElroyCloud = module.exports = function() {
 
       self.webSocket = ws._socket;
 
+      self.webSocket.on('end', function() {
+        self.webSocket = null;
+        self.subscriptions = {};
+        self._collectors = {};
+      });
+
       self.agent = spdy.createAgent(FogAgent, {
         host: 'localhost',
         port: 80,
@@ -63,7 +70,15 @@ var ElroyCloud = module.exports = function() {
         }
       });
 
+      // TODO: Remove this when bug in agent socket removal is fixed.
+      self.agent.maxSockets = 150;
+      //console.log(self.agent.maxSockets);
+
       self.agent.on('push', function(stream) {
+        if (!self.subscriptions[stream.url] && !self._collectors[stream.url]) {
+          stream.connection.associated.end();
+        }
+
         var data = [];
         var len = 0;
         stream.on('readable', function() {
@@ -78,16 +93,20 @@ var ElroyCloud = module.exports = function() {
         });
 
         stream.on('end', function() {
+          if (!self.webSocket) {
+            stream.connection.end();
+            return;
+          }
           var queueName = stream.url;
           var body = data.join();
 
-          if(self._collectors[queueName]){
+          if(self._collectors[queueName] && self._collectors[queueName].length){
             self._collectors[queueName].forEach(function(collector){
               collector(data);
             });
           }
 
-          if(self.subscriptions[queueName]){
+          if(self.subscriptions[queueName] && self.subscriptions[queueName].length){
             self.subscriptions[queueName].forEach(function(client){
               var data;
 
@@ -106,9 +125,17 @@ var ElroyCloud = module.exports = function() {
       });
 
       var keys = Object.keys(self._collectors).concat(Object.keys(self.subscriptions));
+
       keys.forEach(function(k){
         self._subscribe(k);  
-      })
+      });
+
+      setInterval(function() {
+        self.agent.ping(function(err) {
+          //TODO: Handle a lack of PONG.
+        });
+      }, 10 * 1000);
+
     } else if(ws.upgradeReq.url === '/events'){
       self.setupEventSocket(ws);
     }
@@ -127,10 +154,37 @@ ElroyCloud.prototype.setupEventSocket = function(ws){
         if(c === ws)
           self.subscriptions[channel].splice(idx,1);  
       });
+
+      if (self.subscriptions[channel].length === 0) {
+        //console.log('deleting subscription:', channel);
+        delete self.subscriptions[channel];
+        var con = self.eventRequests[channel].connection;
+        //con.end();
+        //console.log(self.agent.sockets);
+        /*var idx = null;
+        console.log('hosts:', Object.keys(self.agent.sockets));
+        Object.keys(self.agent.sockets).forEach(function(host) {
+          console.log(host);
+          self.agent.sockets[host].forEach(function(sock, i) {
+            console.log(i);
+            if (sock === con.socket) {
+              sock.end();
+              idx = i;
+            }
+          });
+
+          if (idx !== null) {
+            self.agent.sockets[host].splice(idx);
+          }
+        });*/
+        delete self.eventRequests[channel];
+        //console.log(self.agent.sockets);
+      }
     });
   }
 
   ws.on('close',function(){
+    //console.log('closing socket');
     closeSocket();  
   });
 
@@ -155,6 +209,7 @@ ElroyCloud.prototype.setupEventSocket = function(ws){
         isNew = true;
       }
 
+      //console.log('isNew:', isNew);
       self.subscriptions[msg.name].push(ws);
 
       if (isNew) {
@@ -184,6 +239,8 @@ ElroyCloud.prototype.collector = function(name,collector){
 };
 
 ElroyCloud.prototype._subscribe = function(event) {
+  //console.log('subscribing to:', event);
+  var self = this;
   var body = 'name='+event;
 
   var opts = {
@@ -199,4 +256,5 @@ ElroyCloud.prototype._subscribe = function(event) {
 
   var req = http.request(opts);
   req.end(new Buffer(body));
+  self.eventRequests[event] = req;
 };
