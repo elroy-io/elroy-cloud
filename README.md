@@ -1,6 +1,6 @@
-# Elroy Cloud
+# Zetta Cloud
 
-`npm install elroy-cloud`
+`npm install zetta-cloud`
 
 ## Example
 
