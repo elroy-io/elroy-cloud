@@ -1,5 +1,5 @@
 {
-  "name": "elroy-cloud",
+  "name": "zetta-cloud",
   "version": "0.0.16",
   "description": "Cloud component for elroy.",
   "main": "cloud.js",
@@ -8,20 +8,20 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/elroy-io/elroy-cloud.git"
+    "url": "https://github.com/zettajs/zetta-cloud.git"
   },
   "author": "",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/elroy-io/elroy-cloud/issues"
+    "url": "https://github.com/zettajs/zetta-cloud/issues"
   },
   "engines": {
     "node": "0.10.x",
     "npm": ">=1.2.x"
   },
-  "homepage": "https://github.com/elroy-io/elroy-cloud",
+  "homepage": "https://github.com/elroy-io/zetta-cloud",
   "bin" : {
-   "elroycloud" : "bin/elroycloud"
+   "elroycloud" : "bin/zettacloud"
   },
   "dependencies": {
     "ws": "~0.4.31",
