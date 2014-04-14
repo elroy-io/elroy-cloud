@@ -3,7 +3,7 @@ var spdy = require('spdy');
 var FogAgent = require('./fog_agent');
 var WebSocketServer = require('ws').Server;
 
-var ElroyCloud = module.exports = function() {
+var ZettaCloud = module.exports = function() {
   this.webSocket = null;
   this.idCounter = 0;
 
@@ -25,16 +25,16 @@ var ElroyCloud = module.exports = function() {
 
     self.clients[messageId] = res;//req.socket; Will need socket for event broadcast.
 
-    req.headers['elroy-message-id'] = messageId;
+    req.headers['zetta-message-id'] = messageId;
 
 
     var opts = { method: req.method, headers: req.headers, path: req.url, agent: self.agent };
     var request = http.request(opts, function(response) {
-      var id = response.headers['elroy-message-id'];
+      var id = response.headers['zetta-message-id'];
       var res = self.clients[id];
 
       Object.keys(response.headers).forEach(function(header) {
-        if (header !== 'elroy-message-id') {
+        if (header !== 'zetta-message-id') {
           res.setHeader(header, response.headers[header]);
         }
       });
@@ -162,7 +162,7 @@ var ElroyCloud = module.exports = function() {
 };
 
 
-ElroyCloud.prototype.setupEventSocket = function(ws){
+ZettaCloud.prototype.setupEventSocket = function(ws){
   var self = this;
 
   ws.on('message', onEventMessage);
@@ -221,12 +221,12 @@ ElroyCloud.prototype.setupEventSocket = function(ws){
   };
 }
 
-ElroyCloud.prototype.listen = function(){
+ZettaCloud.prototype.listen = function(){
   this.server.listen.apply(this.server,arguments);
   return this;
 };
 
-ElroyCloud.prototype.collector = function(name,collector){
+ZettaCloud.prototype.collector = function(name,collector){
   if(typeof name === 'function'){
     collector = name;
     name = '_logs';
@@ -240,7 +240,7 @@ ElroyCloud.prototype.collector = function(name,collector){
   return this;
 };
 
-ElroyCloud.prototype._subscribe = function(event) {
+ZettaCloud.prototype._subscribe = function(event) {
   var self = this;
   var body = 'name='+event;
 

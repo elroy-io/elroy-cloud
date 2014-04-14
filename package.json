@@ -1,7 +1,7 @@
 {
   "name": "zetta-cloud",
-  "version": "0.0.1",
-  "description": "Cloud component for elroy.",
+  "version": "0.0.2",
+  "description": "Cloud component for zetta.",
   "main": "cloud.js",
   "scripts": {
     "start" : "node app.js"
@@ -19,9 +19,9 @@
     "node": "0.10.x",
     "npm": ">=1.2.x"
   },
-  "homepage": "https://github.com/elroy-io/zetta-cloud",
+  "homepage": "https://github.com/zettajs/zetta-cloud",
   "bin" : {
-   "elroycloud" : "bin/zettacloud"
+   "zettacloud" : "bin/zettacloud"
   },
   "dependencies": {
     "ws": "~0.4.31",
