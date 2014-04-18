@@ -1,7 +1,5 @@
-var Server = require('../../');
+var ZettaCloud = require('zetta-runtime').ZettaCloud;
 
-var s = new Server();
-
-s.setup();
-
-s.listen(process.env.PORT || 3000);
+var cloud = new ZettaCloud();
+cloud.setup();
+cloud.listen(process.env.PORT || 3000);
