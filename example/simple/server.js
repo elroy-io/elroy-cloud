@@ -1,4 +1,4 @@
-var Server = require('../');
+var Server = require('../../');
 
 var s = new Server();
 
