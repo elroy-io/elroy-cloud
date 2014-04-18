@@ -4,7 +4,7 @@ var LEDDriver = module.exports = function(prototype) {
   this.type = 'led';
   this.name = prototype.name;
   this.data = prototype.data || {};
-  this.state = prototype.state;
+  this.state = prototype.state || 'off';
 };
 
 LEDDriver.prototype.init = function(config) {

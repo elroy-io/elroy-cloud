@@ -14,7 +14,7 @@ PhotosensorScout.prototype.init = function(next) {
   var self = this;
   fs.readdir(self.directory, function(err, files) {
     var drivers = files.filter(function(file) {
-      return file === 'photosensor_driver.js';
+      return false;//file === 'photosensor_driver.js';
     }).forEach(function(file) {
       var p = path.join(self.directory, file);
       var device = require(path.join(self.directory, file));
