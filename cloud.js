@@ -1,11 +1,17 @@
+var fs = require('fs');
 var http = require('http');
 var spdy = require('spdy');
-var FogAgent = require('./fog_agent');
+var argo = require('argo');
+var titan = require('titan');
 var WebSocketServer = require('ws').Server;
+var ZettaRuntime = require('zetta-runtime');
+var PubSubService = ZettaRuntime.PubSubService;
+var FogAgent = require('./fog_agent');
 
 var ZettaCloud = module.exports = function() {
   this.webSocket = null;
   this.idCounter = 0;
+  this.isLocal = false;
 
   this._collectors = {};
   this.clients = {};
@@ -14,38 +20,67 @@ var ZettaCloud = module.exports = function() {
 
   this.agent = null;
 
+  this.server = http.createServer();
+  this.cloud = argo();
+};
+
+ZettaCloud.prototype.setup = function(cb) {
+  var localApp = './app/app.js';
   var self = this;
-  this.server = http.createServer(function(req, res) {
-    if (!self.webSocket) {
-      res.statusCode = 500;
-      res.end();
-      return;
+  fs.stat(localApp, function(err, stat) {
+    if (!err) {
+      self.isLocal = true;
+      ZettaRuntime.bootstrapper('./app/app.js', self.cloud);
     }
-    var messageId = ++self.idCounter;
 
-    self.clients[messageId] = res;//req.socket; Will need socket for event broadcast.
+    self.init(cb);
+  });
+};
 
-    req.headers['zetta-message-id'] = messageId;
+ZettaCloud.prototype.init = function(cb) {
+  var self = this;
+  this.cloud = this.cloud.route('*', function(handle) {
+    handle('request', function(env, next) {
+      var req = env.request;
+      var res = env.response;
+      if (!self.webSocket) {
+        res.statusCode = 500;
+        res.end();
+        return;
+      }
+      var messageId = ++self.idCounter;
+
+      self.clients[messageId] = res;//req.socket; Will need socket for event broadcast.
+
+      req.headers['zetta-message-id'] = messageId;
 
 
-    var opts = { method: req.method, headers: req.headers, path: req.url, agent: self.agent };
-    var request = http.request(opts, function(response) {
-      var id = response.headers['zetta-message-id'];
-      var res = self.clients[id];
+      var opts = { method: req.method, headers: req.headers, path: req.url, agent: self.agent };
+      var request = http.request(opts, function(response) {
+        var id = response.headers['zetta-message-id'];
+        var res = self.clients[id];
 
-      Object.keys(response.headers).forEach(function(header) {
-        if (header !== 'zetta-message-id') {
-          res.setHeader(header, response.headers[header]);
-        }
+        Object.keys(response.headers).forEach(function(header) {
+          if (header !== 'zetta-message-id') {
+            res.setHeader(header, response.headers[header]);
+          }
+        });
+
+        response.pipe(res);
+
+        response.on('finish', function() {
+          next(env);
+        });
+
+        delete self.clients[id];
       });
 
-      response.pipe(res);
-
-      delete self.clients[id];
+      req.pipe(request);
     });
+  })
+  .build();
 
-    req.pipe(request);
-  });
+  this.server.on('request', this.cloud.run);
 
   this.wss = new WebSocketServer({ server: this.server });
   this.wss.on('connection', function(ws) {
@@ -110,34 +145,7 @@ var ZettaCloud = module.exports = function() {
           var queueName = stream.url;
           var body = data.join();
 
-          if(self._collectors[queueName] && self._collectors[queueName].length){
-            self._collectors[queueName].forEach(function(collector){
-              collector(data);
-            });
-          }
-
-          if(self.subscriptions[queueName] && self.subscriptions[queueName].length && self.eventRequests[queueName]){
-            var toRemove = [];
-            self.subscriptions[queueName].forEach(function(client, i){
-              var data;
-
-              try {
-                data = JSON.parse(body);
-              } catch(e) {
-                data = body;
-              }
-
-              client.send(JSON.stringify({ destination : queueName, data : data }), function(err) {
-                if (err) {
-                  toRemove.push(i);
-                }
-              });
-            });
-
-            toRemove.forEach(function(idx) {
-              self.subscriptions[queueName].splice(idx);
-            });
-          }
+          self._publish(queueName, body);
 
           stream.connection.end();
         });
@@ -158,6 +166,10 @@ var ZettaCloud = module.exports = function() {
     } else if(ws.upgradeReq.url === '/events'){
       self.setupEventSocket(ws);
     }
+
+    if (cb) {
+      cb();
+    }
   });
 };
 
@@ -176,13 +188,15 @@ ZettaCloud.prototype.setupEventSocket = function(ws){
 
       if (self.subscriptions[channel].length === 0) {
         delete self.subscriptions[channel];
-        var con = self.eventRequests[channel].connection;
+        if (!self.isLocal) {
+          var con = self.eventRequests[channel].connection;
 
-        self.agent.removeSocket(con, self.agent.host + ':' + self.agent.port,
-          self.agent.host, self.agent.port, self.agent.host);
+          self.agent.removeSocket(con, self.agent.host + ':' + self.agent.port,
+            self.agent.host, self.agent.port, self.agent.host);
 
-        delete self.eventRequests[channel];
-        con.end();
+          delete self.eventRequests[channel];
+          con.end();
+        }
       }
     });
   }
@@ -242,20 +256,57 @@ ZettaCloud.prototype.collector = function(name,collector){
 
 ZettaCloud.prototype._subscribe = function(event) {
   var self = this;
-  var body = 'name='+event;
+  if (self.isLocal) {
+    PubSubService.subscribeLocal(event, self._publish.bind(self));
+  } else {
+    var body = 'name='+event;
 
-  var opts = {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Host': 'fog.argo.cx',
-      'Content-Length': body.length
-    },
-    path: '/_subscriptions',
-    agent: this.agent
-  };
+    var opts = {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Host': 'fog.argo.cx',
+        'Content-Length': body.length
+      },
+      path: '/_subscriptions',
+      agent: this.agent
+    };
 
-  var req = http.request(opts);
-  req.end(new Buffer(body));
-  self.eventRequests[event] = req;
+    var req = http.request(opts);
+    req.end(new Buffer(body));
+    self.eventRequests[event] = req;
+  }
+};
+
+ZettaCloud.prototype._publish = function(queueName, body) {
+  var self = this;
+
+  if(self._collectors[queueName] && self._collectors[queueName].length){
+    self._collectors[queueName].forEach(function(collector){
+      collector(body);
+    });
+  }
+
+  if(self.subscriptions[queueName] && self.subscriptions[queueName].length /*&& self.eventRequests[queueName]*/){
+    var toRemove = [];
+    self.subscriptions[queueName].forEach(function(client, i){
+      var data;
+
+      try {
+        data = JSON.parse(body);
+      } catch(e) {
+        data = body;
+      }
+
+      client.send(JSON.stringify({ destination : queueName, data : data }), function(err) {
+        if (err) {
+          toRemove.push(i);
+        }
+      });
+    });
+
+    toRemove.forEach(function(idx) {
+      self.subscriptions[queueName].splice(idx);
+    });
+  }
 };
