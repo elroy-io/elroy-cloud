@@ -1,6 +1,6 @@
 {
   "name": "zetta-cloud",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Cloud component for zetta.",
   "main": "cloud.js",
   "scripts": {
