@@ -5,11 +5,13 @@ var argo = require('argo');
 var titan = require('titan');
 var WebSocketServer = require('ws').Server;
 var ZettaRuntime = require('zetta-runtime');
+var PubSubService = ZettaRuntime.PubSubService;
 var FogAgent = require('./fog_agent');
 
 var ZettaCloud = module.exports = function() {
   this.webSocket = null;
   this.idCounter = 0;
+  this.isLocal = false;
 
   this._collectors = {};
   this.clients = {};
@@ -27,6 +29,7 @@ ZettaCloud.prototype.setup = function(cb) {
   var self = this;
   fs.stat(localApp, function(err, stat) {
     if (!err) {
+      self.isLocal = true;
       ZettaRuntime.bootstrapper('./app/app.js', self.cloud);
     }
 
@@ -142,34 +145,7 @@ ZettaCloud.prototype.init = function(cb) {
           var queueName = stream.url;
           var body = data.join();
 
-          if(self._collectors[queueName] && self._collectors[queueName].length){
-            self._collectors[queueName].forEach(function(collector){
-              collector(data);
-            });
-          }
-
-          if(self.subscriptions[queueName] && self.subscriptions[queueName].length && self.eventRequests[queueName]){
-            var toRemove = [];
-            self.subscriptions[queueName].forEach(function(client, i){
-              var data;
-
-              try {
-                data = JSON.parse(body);
-              } catch(e) {
-                data = body;
-              }
-
-              client.send(JSON.stringify({ destination : queueName, data : data }), function(err) {
-                if (err) {
-                  toRemove.push(i);
-                }
-              });
-            });
-
-            toRemove.forEach(function(idx) {
-              self.subscriptions[queueName].splice(idx);
-            });
-          }
+          self._publish(queueName, body);
 
           stream.connection.end();
         });
@@ -212,13 +188,15 @@ ZettaCloud.prototype.setupEventSocket = function(ws){
 
       if (self.subscriptions[channel].length === 0) {
         delete self.subscriptions[channel];
-        var con = self.eventRequests[channel].connection;
+        if (!self.isLocal) {
+          var con = self.eventRequests[channel].connection;
 
-        self.agent.removeSocket(con, self.agent.host + ':' + self.agent.port,
-          self.agent.host, self.agent.port, self.agent.host);
+          self.agent.removeSocket(con, self.agent.host + ':' + self.agent.port,
+            self.agent.host, self.agent.port, self.agent.host);
 
-        delete self.eventRequests[channel];
-        con.end();
+          delete self.eventRequests[channel];
+          con.end();
+        }
       }
     });
   }
@@ -278,20 +256,57 @@ ZettaCloud.prototype.collector = function(name,collector){
 
 ZettaCloud.prototype._subscribe = function(event) {
   var self = this;
-  var body = 'name='+event;
+  if (self.isLocal) {
+    PubSubService.subscribeLocal(event, self._publish.bind(self));
+  } else {
+    var body = 'name='+event;
 
-  var opts = {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Host': 'fog.argo.cx',
-      'Content-Length': body.length
-    },
-    path: '/_subscriptions',
-    agent: this.agent
-  };
+    var opts = {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Host': 'fog.argo.cx',
+        'Content-Length': body.length
+      },
+      path: '/_subscriptions',
+      agent: this.agent
+    };
 
-  var req = http.request(opts);
-  req.end(new Buffer(body));
-  self.eventRequests[event] = req;
+    var req = http.request(opts);
+    req.end(new Buffer(body));
+    self.eventRequests[event] = req;
+  }
+};
+
+ZettaCloud.prototype._publish = function(queueName, body) {
+  var self = this;
+
+  if(self._collectors[queueName] && self._collectors[queueName].length){
+    self._collectors[queueName].forEach(function(collector){
+      collector(body);
+    });
+  }
+
+  if(self.subscriptions[queueName] && self.subscriptions[queueName].length /*&& self.eventRequests[queueName]*/){
+    var toRemove = [];
+    self.subscriptions[queueName].forEach(function(client, i){
+      var data;
+
+      try {
+        data = JSON.parse(body);
+      } catch(e) {
+        data = body;
+      }
+
+      client.send(JSON.stringify({ destination : queueName, data : data }), function(err) {
+        if (err) {
+          toRemove.push(i);
+        }
+      });
+    });
+
+    toRemove.forEach(function(idx) {
+      self.subscriptions[queueName].splice(idx);
+    });
+  }
 };
