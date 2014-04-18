@@ -1,6 +1,6 @@
 {
   "name": "zetta-cloud",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Cloud component for zetta.",
   "main": "cloud.js",
   "scripts": {
@@ -27,6 +27,7 @@
     "ws": "~0.4.31",
     "spdy": ">=1.24.0",
     "argo": "^0.4.9",
-    "titan": "^0.1.1"
+    "titan": "^0.1.1",
+    "zetta-runtime": "*"
   }
 }
