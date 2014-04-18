@@ -4,7 +4,7 @@
   "description": "Cloud component for zetta.",
   "main": "cloud.js",
   "scripts": {
-    "start" : "node app.js"
+    "start": "node app.js"
   },
   "repository": {
     "type": "git",
@@ -20,11 +20,13 @@
     "npm": ">=1.2.x"
   },
   "homepage": "https://github.com/zettajs/zetta-cloud",
-  "bin" : {
-   "zettacloud" : "bin/zettacloud"
+  "bin": {
+    "zettacloud": "bin/zettacloud"
   },
   "dependencies": {
     "ws": "~0.4.31",
-    "spdy": ">=1.24.0"
+    "spdy": ">=1.24.0",
+    "argo": "^0.4.9",
+    "titan": "^0.1.1"
   }
 }

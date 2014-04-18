@@ -1,7 +1,11 @@
+var fs = require('fs');
 var http = require('http');
 var spdy = require('spdy');
-var FogAgent = require('./fog_agent');
+var argo = require('argo');
+var titan = require('titan');
 var WebSocketServer = require('ws').Server;
+var ZettaRuntime = require('zetta-runtime');
+var FogAgent = require('./fog_agent');
 
 var ZettaCloud = module.exports = function() {
   this.webSocket = null;
@@ -14,38 +18,66 @@ var ZettaCloud = module.exports = function() {
 
   this.agent = null;
 
+  this.server = http.createServer();
+  this.cloud = argo();
+};
+
+ZettaCloud.prototype.setup = function(cb) {
+  var localApp = './app/app.js';
   var self = this;
-  this.server = http.createServer(function(req, res) {
-    if (!self.webSocket) {
-      res.statusCode = 500;
-      res.end();
-      return;
+  fs.stat(localApp, function(err, stat) {
+    if (!err) {
+      ZettaRuntime.bootstrapper('./app/app.js', self.cloud);
     }
-    var messageId = ++self.idCounter;
 
-    self.clients[messageId] = res;//req.socket; Will need socket for event broadcast.
+    self.init(cb);
+  });
+};
 
-    req.headers['zetta-message-id'] = messageId;
+ZettaCloud.prototype.init = function(cb) {
+  var self = this;
+  this.cloud = this.cloud.route('*', function(handle) {
+    handle('request', function(env, next) {
+      var req = env.request;
+      var res = env.response;
+      if (!self.webSocket) {
+        res.statusCode = 500;
+        res.end();
+        return;
+      }
+      var messageId = ++self.idCounter;
+
+      self.clients[messageId] = res;//req.socket; Will need socket for event broadcast.
+
+      req.headers['zetta-message-id'] = messageId;
 
 
-    var opts = { method: req.method, headers: req.headers, path: req.url, agent: self.agent };
-    var request = http.request(opts, function(response) {
-      var id = response.headers['zetta-message-id'];
-      var res = self.clients[id];
+      var opts = { method: req.method, headers: req.headers, path: req.url, agent: self.agent };
+      var request = http.request(opts, function(response) {
+        var id = response.headers['zetta-message-id'];
+        var res = self.clients[id];
 
-      Object.keys(response.headers).forEach(function(header) {
-        if (header !== 'zetta-message-id') {
-          res.setHeader(header, response.headers[header]);
-        }
+        Object.keys(response.headers).forEach(function(header) {
+          if (header !== 'zetta-message-id') {
+            res.setHeader(header, response.headers[header]);
+          }
+        });
+
+        response.pipe(res);
+
+        response.on('finish', function() {
+          next(env);
+        });
+
+        delete self.clients[id];
       });
 
-      response.pipe(res);
-
-      delete self.clients[id];
+      req.pipe(request);
     });
+  })
+  .build();
 
-    req.pipe(request);
-  });
+  this.server.on('request', this.cloud.run);
 
   this.wss = new WebSocketServer({ server: this.server });
   this.wss.on('connection', function(ws) {
@@ -157,6 +189,10 @@ var ZettaCloud = module.exports = function() {
 
     } else if(ws.upgradeReq.url === '/events'){
       self.setupEventSocket(ws);
+    }
+
+    if (cb) {
+      cb();
     }
   });
 };

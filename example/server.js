@@ -1,4 +1,4 @@
-var Server = require('./cloud');
+var Server = require('../');
 
 var s = new Server();
 
