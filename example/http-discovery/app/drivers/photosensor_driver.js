@@ -10,6 +10,8 @@ var PhotosensorDriver = module.exports = function(prototype) {
 
 PhotosensorDriver.prototype.init = function(config) {
   config
+    .when('on', { allow: 'change' })
+    .map('change', this.change, { fields: [ { name: 'value' } ] })
     .stream('value', this.onValue);
 };
 
@@ -21,4 +23,9 @@ PhotosensorDriver.prototype.onValue = function(emitter) {
   /*this.board.on('digitalChange', function(e) {
     emitter.emit('data', e.value);
   });*/
+};
+
+PhotosensorDriver.prototype.change = function(value, cb) {
+  this.value = value;
+  cb();
 };
