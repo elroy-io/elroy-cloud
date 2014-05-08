@@ -28,6 +28,6 @@
     "spdy": ">=1.24.0",
     "argo": "^0.4.9",
     "titan": "^0.1.1",
-    "zetta-runtime": ">=0.0.5"
+    "zetta-runtime": ">=0.0.11"
   }
 }
